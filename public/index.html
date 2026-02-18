@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Бункер: Поколение Альфа</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+<base target="_blank">
+</head>
+<body>
+    <div id="app">
+        <!-- ==================== ГЛАВНЫЙ ЭКРАН ==================== -->
+        <div id="main-screen" class="screen active">
+            <div class="hero">
+                <div class="logo">☢️</div>
+                <h1>БУНКЕР</h1>
+                <p class="subtitle">Поколение Альфа</p>
+                <div class="connection-status" id="connection-status">
+                    <span class="indicator connecting"></span>
+                    <span class="text">Подключение...</span>
+                </div>
+            </div>
+            
+            <div class="menu-buttons">
+                <button class="btn btn-primary" id="btn-create-room" onclick="showScreen('create-room-screen')">
+                    <span class="icon">🏠</span>
+                    <span>Создать комнату</span>
+                </button>
+                <button class="btn btn-secondary" id="btn-join-room" onclick="showScreen('join-room-screen')">
+                    <span class="icon">🔑</span>
+                    <span>Присоединиться</span>
+                </button>
+                <button class="btn btn-secondary" onclick="showScreen('rules-screen')">
+                    <span class="icon">📖</span>
+                    <span>Правила</span>
+                </button>
+            </div>
+            
+            <div class="game-info">
+                <div class="info-item">
+                    <span class="icon">👥</span>
+                    <span>4-10 игроков</span>
+                </div>
+                <div class="info-item">
+                    <span class="icon">⏱️</span>
+                    <span>30-60 минут</span>
+                </div>
+                <div class="info-item">
+                    <span class="icon">🌐</span>
+                    <span>Онлайн</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН СОЗДАНИЯ КОМНАТЫ ==================== -->
+        <div id="create-room-screen" class="screen">
+            <div class="header">
+                <button class="btn-back" onclick="showScreen('main-screen')">←</button>
+                <h2>Создать комнату</h2>
+            </div>
+            
+            <div class="setup-content">
+                <div class="setup-section">
+                    <h3>Режим игры</h3>
+                    <div class="mode-selector">
+                        <button class="mode-btn active" data-mode="basic" onclick="selectMode('basic')">
+                            <span class="icon">🏁</span>
+                            <span class="label">Базовый</span>
+                            <span class="desc">Попади в бункер</span>
+                        </button>
+                        <button class="mode-btn" data-mode="story" onclick="selectMode('story')">
+                            <span class="icon">📚</span>
+                            <span class="label">История выживания</span>
+                            <span class="desc">Преодолей угрозы</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="setup-section">
+                    <h3>Количество игроков</h3>
+                    <div class="players-selector">
+                        <button class="players-btn" onclick="changePlayers(-1)">-</button>
+                        <span id="players-count" class="players-count">6</span>
+                        <button class="players-btn" onclick="changePlayers(1)">+</button>
+                    </div>
+                    <div class="players-info">
+                        <span>Мест в бункере: <strong id="bunker-slots">3</strong></span>
+                        <span>Будет изгнано: <strong id="exiled-count">3</strong></span>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-large" onclick="createRoom()">
+                    <span class="icon">🚀</span>
+                    <span>Создать комнату</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН ПОДКЛЮЧЕНИЯ ==================== -->
+        <div id="join-room-screen" class="screen">
+            <div class="header">
+                <button class="btn-back" onclick="showScreen('main-screen')">←</button>
+                <h2>Присоединиться</h2>
+            </div>
+            
+            <div class="join-content">
+                <div class="code-input-section">
+                    <h3>Введите код комнаты</h3>
+                    <div class="code-inputs" id="code-inputs">
+                        <input type="text" maxlength="1" class="code-char" data-index="0">
+                        <input type="text" maxlength="1" class="code-char" data-index="1">
+                        <input type="text" maxlength="1" class="code-char" data-index="2">
+                        <input type="text" maxlength="1" class="code-char" data-index="3">
+                        <input type="text" maxlength="1" class="code-char" data-index="4">
+                        <input type="text" maxlength="1" class="code-char" data-index="5">
+                    </div>
+                    <p class="hint">Код из 6 символов</p>
+                </div>
+                
+                <button class="btn btn-primary btn-large" onclick="joinRoom()">
+                    <span class="icon">🚪</span>
+                    <span>Войти в комнату</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН ЛОББИ (ОЖИДАНИЕ) ==================== -->
+        <div id="lobby-screen" class="screen">
+            <div class="header">
+                <button class="btn-back" onclick="leaveRoom()">←</button>
+                <h2>Комната</h2>
+            </div>
+            
+            <div class="lobby-content">
+                <div class="room-code-section">
+                    <span class="label">Код комнаты</span>
+                    <div class="room-code" id="lobby-room-code">
+                        <span class="code">------</span>
+                        <button class="btn-copy" onclick="copyRoomCode()">📋</button>
+                    </div>
+                    <p class="hint">Поделитесь кодом с друзьями</p>
+                </div>
+                
+                <div class="players-section">
+                    <h3>Игроки <span id="players-count-lobby">0/6</span></h3>
+                    <div class="lobby-players-list" id="lobby-players">
+                        <!-- Динамически заполняется -->
+                    </div>
+                </div>
+                
+                <div class="lobby-info">
+                    <div class="info-row">
+                        <span>Режим:</span>
+                        <span id="lobby-mode">Базовый</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Мест в бункере:</span>
+                        <span id="lobby-slots">3</span>
+                    </div>
+                </div>
+                
+                <div class="lobby-actions" id="lobby-actions">
+                    <button class="btn btn-secondary" id="btn-ready" onclick="toggleReady()">
+                        <span class="icon">✅</span>
+                        <span>Готов</span>
+                    </button>
+                    <button class="btn btn-primary hidden" id="btn-start-game" onclick="startGame()">
+                        <span class="icon">🚀</span>
+                        <span>Начать игру</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН ПРАВИЛ ==================== -->
+        <div id="rules-screen" class="screen">
+            <div class="header">
+                <button class="btn-back" onclick="showScreen('main-screen')">←</button>
+                <h2>Правила игры</h2>
+            </div>
+            
+            <div class="rules-content">
+                <div class="rule-section">
+                    <h3>🎯 Цель игры</h3>
+                    <p>На Земле грядёт катастрофа! Вы у входа в спасительный бункер, но мест хватит только на половину. Убедите остальных, что именно вы достойны выжить.</p>
+                </div>
+                
+                <div class="rule-section">
+                    <h3>🃏 Карты персонажа</h3>
+                    <p>Каждый игрок получает 6 карт: Суперсила, Фобия, Характер, Хобби, Багаж и Факт. Открывайте их постепенно и аргументируйте свою полезность.</p>
+                </div>
+                
+                <div class="rule-section">
+                    <h3>📋 Ход игры (5 раундов)</h3>
+                    <div class="rounds-table">
+                        <div class="round-row header">
+                            <span>Раунд</span>
+                            <span>Действие</span>
+                        </div>
+                        <div class="round-row">
+                            <span>1</span>
+                            <span>Открытие Суперсилы</span>
+                        </div>
+                        <div class="round-row">
+                            <span>2</span>
+                            <span>Открытие 2-й карты + голосование</span>
+                        </div>
+                        <div class="round-row">
+                            <span>3</span>
+                            <span>Открытие 3-й карты + голосование</span>
+                        </div>
+                        <div class="round-row">
+                            <span>4</span>
+                            <span>Открытие 4-й карты + голосование</span>
+                        </div>
+                        <div class="round-row">
+                            <span>5</span>
+                            <span>Открытие 5-й карты + финальное голосование</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="rule-section">
+                    <h3>🗳️ Голосование</h3>
+                    <p>Все игроки одновременно голосуют за изгнание. Тот, кто получил больше всего голосов, покидает игру. При равенстве — случайный выбор.</p>
+                </div>
+                
+                <div class="rule-section">
+                    <h3>🏆 Победа</h3>
+                    <p>В <strong>Базовом режиме</strong> побеждают все, кто попал в бункер.</p>
+                    <p>В режиме <strong>Истории выживания</strong> нужно ещё преодолеть угрозы и катастрофу!</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН ИГРЫ ==================== -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <button class="btn-back" onclick="confirmExit()">←</button>
+                <div class="game-info-bar">
+                    <span class="round-badge">Раунд <span id="current-round">1</span>/5</span>
+                    <span class="phase-badge" id="current-phase">Исследование</span>
+                </div>
+            </div>
+            
+            <div class="catastrophe-banner" id="game-catastrophe">
+                <span class="icon">☢️</span>
+                <div class="info">
+                    <span class="label">Катастрофа</span>
+                    <span class="name">Загрузка...</span>
+                </div>
+            </div>
+            
+            <div class="bunker-threats" id="bunker-threats">
+                <div class="bunker-card" id="bunker-card">
+                    <span class="label">Бункер</span>
+                    <span class="icon">🏠</span>
+                    <span class="name">???</span>
+                </div>
+                <div class="threat-card" id="threat-card">
+                    <span class="label">Угроза</span>
+                    <span class="icon">⚠️</span>
+                    <span class="name">???</span>
+                </div>
+            </div>
+            
+            <!-- Мои карты -->
+            <div class="my-cards-section">
+                <h3>Мои карты</h3>
+                <div class="my-cards" id="my-cards">
+                    <!-- Динамически заполняется -->
+                </div>
+            </div>
+            
+            <!-- Игроки -->
+            <div class="players-section-game">
+                <h3>Игроки</h3>
+                <div class="game-players-list" id="game-players">
+                    <!-- Динамически заполняется -->
+                </div>
+            </div>
+            
+            <!-- Игровые действия -->
+            <div class="game-actions" id="game-actions">
+                <!-- Динамически заполняется -->
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН ГОЛОСОВАНИЯ ==================== -->
+        <div id="voting-screen" class="screen">
+            <div class="header">
+                <h2>🗳️ Голосование</h2>
+                <p class="subtitle">Выберите, кого изгнать</p>
+            </div>
+            
+            <div class="voting-progress" id="voting-progress">
+                <span class="progress-text">Голосование...</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="voting-progress-fill"></div>
+                </div>
+            </div>
+            
+            <div class="voting-players" id="voting-players">
+                <!-- Динамически заполняется -->
+            </div>
+            
+            <div class="voting-results hidden" id="voting-results">
+                <h3>Результаты</h3>
+                <div class="results-list" id="results-list"></div>
+                <div class="exiled-announcement" id="exiled-announcement"></div>
+            </div>
+        </div>
+
+        <!-- ==================== ЭКРАН ФИНАЛА ==================== -->
+        <div id="final-screen" class="screen">
+            <div class="final-header">
+                <h1>🏆 Игра окончена</h1>
+            </div>
+            
+            <div class="final-content" id="final-content">
+                <!-- Динамически заполняется -->
+            </div>
+            
+            <div class="final-actions">
+                <button class="btn btn-primary" onclick="showScreen('main-screen'); leaveRoom();">
+                    <span class="icon">🏠</span>
+                    <span>В главное меню</span>
+                </button>
+                <button class="btn btn-secondary" onclick="playAgain()">
+                    <span class="icon">🔄</span>
+                    <span>Играть снова</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== МОДАЛЬНЫЕ ОКНА ==================== -->
+        
+        <!-- Модальное окно карты -->
+        <div id="card-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="modal-close" onclick="closeModal()">×</button>
+                <div class="card-large" id="modal-card"></div>
+            </div>
+        </div>
+
+        <!-- Модальное окно выбора карты для открытия -->
+        <div id="reveal-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="modal-close" onclick="closeRevealModal()">×</button>
+                <div class="reveal-dialog">
+                    <h3>Какую карту открыть?</h3>
+                    <div class="reveal-options" id="reveal-options"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Уведомление -->
+        <div id="notification" class="notification hidden">
+            <span class="icon"></span>
+            <span class="message"></span>
+        </div>
+
+        <!-- Загрузка -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="loading-spinner"></div>
+            <span class="loading-text">Загрузка...</span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
