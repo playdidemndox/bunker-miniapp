@@ -86,11 +86,7 @@ function initTelegramWebApp() {
 function initSocket() {
     updateConnectionStatus('connecting');
 
-    state.socket = io(window.location.origin, {
-        transports: ['websocket'],
-        secure: true,
-        withCredentials: false
-    });
+    state.socket = io();
 
     state.socket.on('connect', () => {
         console.log('✅ Connected to server');
